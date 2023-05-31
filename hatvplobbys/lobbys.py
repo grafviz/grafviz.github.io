@@ -79,6 +79,8 @@ for firme in data:
     print(lab)
 
     ident=firme['typeIdentifiantNational']+str(firme['identifiantNational'])
+    nodeOptions={'identifiant':ident}
+    
     identifiants_firmes.add(ident)
     print('******affiliation')
 
@@ -90,6 +92,8 @@ for firme in data:
                     'target':a['label'],
                     'options':{'type':"Secteur d'activite"},
                     'targetParentId':'Secteurs'}]
+                
+
     if secteurs==[]:
         nosecteur+=[nom]
 
@@ -111,7 +115,7 @@ for firme in data:
         links+=[{'source':nom,
                     'target':denom,
                     'targetParentId':'Affiliations', # si existe pas a la fin
-                    'options':{'type':'Affiliation'}}]
+                    'options':{'type':'Affiliations'}}]
         #affils+=[denom]
         if not denom in occurs:
             occurs[denom]={'total':1,'affilies':[nom],'secteurs':{}}
@@ -134,11 +138,15 @@ for firme in data:
     printjs('****clients')
     printjs(firme['clients'])
     for cl in firme['clients']:
-        links+=[{'source':nom, 'target':cl['denomination'],'targetParentId':'Clients','options':{'type':'Client'}}]
+        links+=[{'source':nom, 'target':cl['denomination'],'targetParentId':'Clients','options':{'type':'Clients'}}]
         identifiants_clients.add(cl['typeIdentifiantNational']+str(cl['identifiantNational']))
     print('******exercices')
     for ex in firme['exercices']:
+        printjs(ex)
         ex=ex['publicationCourante']
+        nodeOptions['Exercice '+str(ex['dateDebut'])+" - "+str(ex['dateFin'])]= "Chiffre d'affaire: "+ex['chiffreAffaire']+", depenses: "+ex['montantDepense']+", Nb salariés: "+str(ex['nombreSalaries']) \
+                                                                                    if 'chiffreAffaire' in ex \
+                                                                                    else "Pas de chiffre"
         if 'activites' in ex:
             for act in ex['activites']:
                 dict=act['publicationCourante']
@@ -147,18 +155,27 @@ for firme in data:
                     print('new action')
                     for cible in action['reponsablesPublics']:#sic...
                         print('new cible',cible)
-                        options={'type':"Action",
+                        linkOptions={'type':"Cibles",
                                                 'Objet':dict['objet'],
                                                 'Decisions concernees':action['decisionsConcernees'],
                                                 'Actions menees':action['actionsMenees'],
                                                 'Tiers concernes':action['tiers']
                                                 }
+                        for k in ['Objet','Decisions concernees','Actions menees']:
+                            if k in nodeOptions:
+                                if linkOptions[k] not in nodeOptions[k]['value']:
+                                    print(nodeOptions[k])
+                                    nodeOptions[k]['value'] += [linkOptions[k]]
+                            else:
+                                nodeOptions[k]={"value":[linkOptions[k]],  
+                                                "priority":5 if k=="Objet" else .5}
+                        
                         if cible.startswith('Membre du Gouvernement ou membre de cabinet ministériel -'):
-                            options['Ministere']=cible.split(' - ')[1]
+                            linkOptions['Ministere']=cible.split(' - ')[1]
                             cible='Membre du Gouvernement ou membre de cabinet ministeriel'
                         
                         if cible.startswith("Directeur ou secrétaire général, ou leur adjoint, ou membre du collège ou d'une commission des sanctions d'une autorité administrative ou publique indépendante -"):
-                            options['Instance']=cible.split(' - ')[1]
+                            linkOptions['Instance']=cible.split(' - ')[1]
                             print(cible)
                             cible="Directeur ou secretaire general, ou leur adjoint, ou membre du college ou d'une commission des sanctions d'une autorite administrative ou publique independante"
                         
@@ -166,7 +183,7 @@ for firme in data:
                         links+=[{'source':nom,
                                     'target':cible,
                                     'targetParentId':"Cibles",
-                                    'options':options}]
+                                    'options':linkOptions}]
 
     if not firme['isActivitesPubliees']:
         print('activites non publiees...')
@@ -176,7 +193,7 @@ for firme in data:
     if not firme['declarationOrgaAppartenance']:
         print('appartenance non declaree...')
         pasAppart+=[nom]
-    nodes[nom]={'parentId':lab,'options':{'identifiant':firme['typeIdentifiantNational']+str(firme['identifiantNational'])}}
+    nodes[nom]={'parentId':lab,'options':nodeOptions}
 
     #x=raw_input('press any key')
 f.close()
@@ -237,6 +254,10 @@ print('diff clients',identifiants_clients.difference(identifiants_firmes))
 
 with open("lobbys.json", "w+") as jsonFile:
         jsonFile.seek(0)
-        result={"nodes":nodes,"links":links}
+        result={"nodes":nodes,
+                "links":links,
+                "params":{"dispLinksWithWithoutType":"false",#eviter les "links with" trop longs
+                            "infoMax":5#ca peut aller vite avec le descriptif des missions
+                }}
         json.dump(result, jsonFile, indent = 4, separators = (',', ':'))#, sort_keys=True)
         jsonFile.truncate()

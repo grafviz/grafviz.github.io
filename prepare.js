@@ -138,7 +138,7 @@ function treatWDDB(result) {
             }
 
             if (title=='RangeMap'){
-              //title="Is it in my country?"
+              title="Is it in my country?"
               source='Wikidata'
               url=value
               value=[{'img':true,'url':value}]
@@ -155,7 +155,7 @@ function treatWDDB(result) {
           if (title=='GBIFId'){
             title="GBIF Page"
             url='https://www.gbif.org/fr/species/'+value
-            value=['(Is it in my backyard?)']
+            value=['Is it in my backyard']
             source='GBIF'
           }
 
@@ -211,17 +211,11 @@ function treatWDDB(result) {
         //console.log(entries[r])
         node.isMath= (wdKey=='maths') || ( entries[r].occupation && (entries[r].occupation.value.split('/').slice(-1)[0]=='Q170790') )//math
 
-        if (wdKey=="impressionism"){
-          //if ( entries[r].occupation && (entries[r].occupation.value.split('/').slice(-1)[0]=='Q1028181') )//impressionism
-{node.feat='optionWikipedia_article' in entries[r]}
-      }
-
-      if (wdKey=="frPainters"){
-        node.feat=('optionNotable_work' in entries[r] && 'optionWikipedia_article' in entries[r])
-    }
-
-        if (wdKey.startsWith('taxons')){node.feat='optionEnglish_article' in entries[r] && 'img' in entries[r]}
-        else if (wdKey=="frMaths") {node.feat=
+        if ( entries[r].occupation && (entries[r].occupation.value.split('/').slice(-1)[0]=='Q1028181') )//impressionism
+        {node.feat='optionWikipedia_article' in entries[r]}
+        else if (wdKey.startsWith('taxons')){node.feat='optionEnglish_article' in entries[r] && 'optionRangeMap' in entries[r]}
+        else {node.feat=('optionItis_TSN' in entries[r])
+                              ||
                             ('optionAward' in entries[r] && entries[r].optionAward.value.includes('Q28835') )//Fields medal
                               ||
                             ('optionWikipedia_article' in entries[r]//un matheux est celebre s'il a un article WP et un Notable_work ou (un award et un student mathematician)
@@ -252,7 +246,7 @@ function treatWDDB(result) {
         nodesWD[node.id]=mergeNodes(nodesWD[node.id],node)
         //console.log(r,id,nodesWD[r],isMath,entries[r],entries[r].occupation.value,entries[r].occupation.value.split('/').slice(-1)[0]=='Q1622272')
     }
-    json_WD = {'params': {'cleanNonFeatured': (wdKey!='countriesWD' && wdKey!='impressionism'),// && (wdKey!='taxonsArachnids'),
+    json_WD = {'params': {'cleanNonFeatured': (wdKey!='countriesWD' && wdKey!='impressionism' && wdKey!='taxonsArachnids'),// && (wdKey!='taxonsArachnids'),
                           'inheritPicFromChild':(wdKey.includes('taxons')),
                             'simultImg':150,
                             'inheritLinks': (wdKey=='maths')?2:1,//1 node suffices to inherit link
@@ -363,7 +357,22 @@ function wdQuery(s) {
                     ?id wdt:P106 wd:Q1028181;
                       wdt:P27 wd:Q142.
 
-                    #?id (ps:P135/(wdt:P279*)) wd:Q40415. #impressionism
+                ?id p:P800 _:b102.
+                _:b102 ps:P800 ?optionNotable_work.
+
+              OPTIONAL {
+                ?id (wdt:P802|wdt:P185) ?student.
+                ?student wdt:P106 wd:Q170790.
+              }
+            }
+            OPTIONAL {
+              ?id (p:P1066|p:P184) _:b103.
+              _:b103 (ps:P1066|ps:P184) ?parentId.
+              ?parentId wdt:P106 wd:Q1028181.
+            }
+            OPTIONAL {
+              ?id wdt:P737 ?influencer
+              }
 
                     OPTIONAL { ?id wdt:P569 ?optionDate_of_birth. }
 
